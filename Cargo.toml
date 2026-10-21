@@ -1,0 +1,21 @@
+[workspace]
+resolver = "3"
+members = ["Voxelerium", "Renderer", "Utils", "macros"]
+
+[workspace.dependencies]
+glam = "0.34.1"
+pollster = "1.0.1"
+renderer = { version = "0.1.0", path = "Renderer" }
+slotmap = "1.1.1"
+utils = { version = "0.1.0", path = "Utils" }
+wgpu = "30.0.1"
+winit = "0.30.13"
+variadics = "0.1.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.9"
+macros = { version = "0.1.0", path = "macros" }
+
+[profile.release]
+codegen-units = 1
+lto = true

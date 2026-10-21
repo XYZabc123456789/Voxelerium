@@ -1,0 +1,18 @@
+[package]
+name = "Voxelerium"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+utils = { workspace = true }
+glam = { workspace = true }
+pollster = { workspace = true }
+renderer = { workspace = true }
+slotmap = { workspace = true, features = ["unstable"] }
+wgpu = { workspace = true }
+winit = { workspace = true }
+variadics = { workspace = true }
+
+[[bin]]
+name = "elsewhere-afterlight"
+path = "src/main.rs"

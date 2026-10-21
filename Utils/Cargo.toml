@@ -1,0 +1,13 @@
+[package]
+name = "utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+macros = { workspace = true }
+glam = { workspace = true }
+pollster = { workspace = true }
+slotmap = { workspace = true, features = ["unstable"] }
+wgpu = { workspace = true }
+winit = { workspace = true }
+variadics = { workspace = true }
