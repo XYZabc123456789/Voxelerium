@@ -5,14 +5,19 @@ edition = "2024"
 
 [dependencies]
 utils = { workspace = true }
-glam = { workspace = true }
-pollster = { workspace = true }
+glam = { workspace = true, features = ["serde"] }
 renderer = { workspace = true }
 slotmap = { workspace = true, features = ["unstable"] }
-wgpu = { workspace = true }
-winit = { workspace = true }
+wgpu = { workspace = true, features = ["serde"] }
+winit = { workspace = true, features = ["serde"] }
 variadics = { workspace = true }
+rayon = { workspace = true }
+core_affinity2 = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time", "tracing"] }
+serde = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "serde", "tracing", "tracing-serde"] }
 
 [[bin]]
-name = "elsewhere-afterlight"
+name = "Voxelerium"
 path = "src/main.rs"

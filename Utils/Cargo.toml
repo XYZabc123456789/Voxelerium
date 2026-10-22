@@ -6,8 +6,13 @@ edition = "2024"
 [dependencies]
 macros = { workspace = true }
 glam = { workspace = true }
-pollster = { workspace = true }
 slotmap = { workspace = true, features = ["unstable"] }
 wgpu = { workspace = true }
 winit = { workspace = true }
 variadics = { workspace = true }
+rayon = { workspace = true }
+core_affinity2 = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

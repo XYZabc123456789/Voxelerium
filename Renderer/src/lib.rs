@@ -1,6 +1,8 @@
 // Renderer lib.rs
-use utils::Gresult;
 use std::sync::Arc;
+use tokio::runtime::Handle;
+use tracing::{debug, error, info, instrument, trace, warn};
+use utils::Gresult;
 use wgpu::wgt::{CommandEncoderDescriptor, DeviceDescriptor, TextureViewDescriptor};
 use wgpu::*;
 use winit::dpi::PhysicalSize;
@@ -9,8 +11,10 @@ use winit::window::Window;
 #[allow(unused)]
 use utils::*;
 #[allow(unused)]
+#[derive(Debug)]
 pub struct Gpu {
     window: Arc<Window>,
+    handle: Handle,
     surface: Surface<'static>,
     adapter: Adapter,
     device: Device,
@@ -20,11 +24,17 @@ pub struct Gpu {
 }
 
 impl Gpu {
-    pub async fn init(window: Arc<Window>) -> Gresult<Self> {
-        let instance = Instance::new(InstanceDescriptor::new_without_display_handle());
-
+    #[instrument(skip_all, name = "GPU init")]
+    pub async fn init(window: Arc<Window>, handle: Handle) -> Gresult<Self> {
+        trace!("Creating instance");
+        let mut instdesc = InstanceDescriptor::new_without_display_handle();
+        instdesc.backends = Backends::DX12 | Backends::VULKAN;
+        let instance = Instance::new(instdesc);
+        trace!("instance created");
+        trace!("Creating surface");
         let surface = instance.create_surface(window.clone())?;
-
+        debug!("surface created");
+        trace!("creating adapter");
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
                 power_preference: PowerPreference::HighPerformance,
@@ -33,10 +43,10 @@ impl Gpu {
                 apply_limit_buckets: false,
             })
             .await;
-
         let adapter = match adapter {
             Ok(a) => a,
             Err(_) => {
+                error!("adapter creating failed, retrying");
                 instance
                     .request_adapter(&RequestAdapterOptions {
                         power_preference: PowerPreference::LowPower,
@@ -47,19 +57,28 @@ impl Gpu {
                     .await?
             }
         };
-
+        debug!("adapter created");
+        let info = adapter.get_info();
+        info!(
+            Adapter_name = info.name,
+            GPU_type = ?info.device_type,
+            Driver_name = info.driver,
+            Driver_info = info.driver_info,
+            Backend = ?info.backend,
+        );
+        trace!("creating device & queue");
         let (device, queue) = adapter.request_device(&DeviceDescriptor::default()).await?;
-
+        debug!("device & queue created");
         let width = window.inner_size().width;
         let height = window.inner_size().height;
+        trace!("configuring surface");
         let config = surface.get_default_config(&adapter, width, height);
-
-        let mut config = config.ok_or("Failed graphics initialisation. No Compatible Surface was found")?;
-
+        let mut config =
+            config.ok_or("Failed graphics initialisation. No Compatible Surface was found")?;
+        trace!("found compatible surface");
         config.present_mode = PresentMode::AutoVsync;
-
         surface.configure(&device, &config);
-
+        debug!("configured surface");
         let shader = device.create_shader_module(include_wgsl!("./shaders/triangle.wgsl"));
         let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("RenderPipeline"),
@@ -86,9 +105,10 @@ impl Gpu {
             multiview_mask: None,
             cache: None,
         });
-
+        debug!("GPU initialisation complete");
         Ok(Self {
             window,
+            handle,
             surface,
             adapter,
             device,
@@ -98,27 +118,37 @@ impl Gpu {
         })
     }
 
-    pub fn resize(&mut self, s: PhysicalSize<u32>) /*-> Gresult<()>*/ {
+    pub fn resize(&mut self, s: PhysicalSize<u32>) -> Gresult<()> {
         self.config.width = s.width;
         self.config.height = s.height;
 
-        if self.config.width == 0 || self.config.height == 0 {return}; 
+        if self.config.width == 0 || self.config.height == 0 {
+            return Ok(());
+        };
 
         self.surface.configure(&self.device, &self.config);
-        //Ok(())
+        Ok(())
     }
 
     pub fn render(&mut self, focus: bool) -> Gresult<()> {
-        if !focus {return Ok(())}
+        if !focus {
+            return Ok(());
+        }
         let output = self.surface.get_current_texture();
 
         let tex = match output {
             CurrentSurfaceTexture::Success(t) => t,
-            CurrentSurfaceTexture::Suboptimal(t) => {self.resize(self.window.inner_size()); t},
-            _ => return Ok(())
+            CurrentSurfaceTexture::Suboptimal(t) => {
+                self.resize(self.window.inner_size())
+                    .expect("Failed resize");
+                t
+            }
+            _ => return Ok(()),
         };
 
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor::default());
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -145,7 +175,6 @@ impl Gpu {
                 timestamp_writes: None,
                 multiview_mask: None,
             });
-
             render_pass.set_pipeline(&self.pipeline);
             render_pass.draw(0..3, 0..1);
         }
