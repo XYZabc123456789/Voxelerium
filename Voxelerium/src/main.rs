@@ -17,7 +17,6 @@
 
 //main.rs
 #![allow(unused)]
-#![allow(type_alias_bounds)]
 use ::utils::Gresult;
 use core_affinity2::*;
 use rayon::*;
@@ -117,7 +116,13 @@ impl ApplicationHandler for App {
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {}
 }
 
+const COPYRIGHT: &str = "Voxelerium  Copyright (C) 2026  XYZabc123456789
+This program comes with ABSOLUTELY NO WARRANTY; for details see the about box.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see the about box for details.";
+
 fn main() {
+    println!("{}", COPYRIGHT);
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             EnvFilter::new(if cfg!(debug_assertions) {
