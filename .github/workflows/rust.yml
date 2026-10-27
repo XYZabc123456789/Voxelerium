@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-A unused-crate-dependencies"
 
 jobs:
   build:
@@ -29,7 +28,7 @@ jobs:
         run: cargo fmt --check
 
       - name: Lint (Clippy)
-        run: cargo clippy --all-targets --all-features --verbose -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Build
         run: cargo build --verbose

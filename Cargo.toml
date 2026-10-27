@@ -1,7 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["Voxelerium", "Renderer", "Utils", "macros"]
-author = "XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>"
+
+[workspace.package]
+authors = ["XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>"]
 license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
@@ -27,3 +29,6 @@ anyhow = "1.0.104"
 [profile.release]
 codegen-units = 1
 lto = true
+
+[workspace.lints.cargo]
+unused_dependencies = "allow"

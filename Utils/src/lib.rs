@@ -16,8 +16,6 @@
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
 // utils lib.rs
-#![allow(unused_dependencies)]
-
 #[allow(unused)]
 pub use macros::*;
 pub type Gresult<T> = anyhow::Result<T>;
