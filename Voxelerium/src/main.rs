@@ -28,8 +28,8 @@ use tracing_subscriber::EnvFilter;
 use winit::application::ApplicationHandler;
 use winit::event::*;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{Window, WindowId};
 use winit::keyboard::Key;
+use winit::window::{Window, WindowId};
 
 mod app;
 use app::*;
@@ -63,7 +63,9 @@ fn main() {
     }
     debug!("cores: {}", core_ids.len());
     let num_threads = core_ids.len() - 2;
-    core_ids[0].set_affinity().expect("Could not set CPU affinity");
+    core_ids[0]
+        .set_affinity()
+        .expect("Could not set CPU affinity");
     trace!("Main thread affinity: CPU0");
     trace!("Creating Threadpool");
     ThreadPoolBuilder::new()

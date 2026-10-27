@@ -27,7 +27,7 @@ pub struct KeyboardInput<const N: usize> {
 impl<const N: usize> KeyboardInput<N> {
     pub fn new() -> Self {
         Self {
-            events: InputBuffer::default()
+            events: InputBuffer::default(),
         }
     }
 
