@@ -2,6 +2,8 @@
 name = "macros"
 version = "0.1.0"
 edition = "2024"
+author = "XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>"
+license = "GPL-3.0-or-later"
 
 [lib]
 proc-macro = true

@@ -6,6 +6,7 @@ version = 4
 name = "Voxelerium"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "core_affinity2",
  "glam",
  "rayon",
@@ -98,6 +99,12 @@ checksum = "ae221649c9976a6f6c56ae1facf410f3ddb33cc661c4b7b61020a912d4237fbc"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "anyhow"
+version = "1.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "arrayref"
@@ -1609,6 +1616,7 @@ checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 name = "renderer"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "rayon",
  "tokio",
  "tracing",
@@ -2101,6 +2109,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 name = "utils"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "core_affinity2",
  "glam",
  "macros",

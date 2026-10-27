@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["Voxelerium", "Renderer", "Utils", "macros"]
+author = "XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>"
+license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
 glam = "0.34.1"
@@ -20,6 +22,7 @@ tokio = "1.54.1"
 serde = "1.0.229"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+anyhow = "1.0.104"
 
 [profile.release]
 codegen-units = 1

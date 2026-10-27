@@ -1,12 +1,31 @@
+// Copyright (C) 2026 XYZabc123456789
+// 
+// This file is part of Voxelerium.
+// 
+// Voxelerium is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// Voxelerium is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
+
+
 // Renderer lib.rs
 use std::sync::Arc;
 use tokio::runtime::Handle;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, error, info, instrument, trace};
 use utils::Gresult;
 use wgpu::wgt::{CommandEncoderDescriptor, DeviceDescriptor, TextureViewDescriptor};
 use wgpu::*;
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
+use anyhow::{anyhow, bail};
 
 #[allow(unused)]
 use utils::*;
@@ -73,8 +92,12 @@ impl Gpu {
         let height = window.inner_size().height;
         trace!("configuring surface");
         let config = surface.get_default_config(&adapter, width, height);
-        let mut config =
-            config.ok_or("Failed graphics initialisation. No Compatible Surface was found")?;
+        let mut config = match config {
+            Some(s) => s,
+            None => {
+                return Err(anyhow!("Failed graphics initialisation. No Compatible Surface was found"));
+            }
+        };
         trace!("found compatible surface");
         config.present_mode = PresentMode::AutoVsync;
         surface.configure(&device, &config);
@@ -142,6 +165,9 @@ impl Gpu {
                 self.resize(self.window.inner_size())
                     .expect("Failed resize");
                 t
+            }
+            CurrentSurfaceTexture::Lost => {
+                bail!("Lost device");
             }
             _ => return Ok(()),
         };

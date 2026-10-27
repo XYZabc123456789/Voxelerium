@@ -2,6 +2,8 @@
 name = "renderer"
 version = "0.1.0"
 edition = "2024"
+author = "XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>"
+license = "GPL-3.0-or-later"
 
 [dependencies]
 utils = { workspace = true }
@@ -10,3 +12,7 @@ winit = { workspace = true }
 rayon = { workspace = true }
 tokio = { workspace = true }
 tracing = {workspace = true}
+anyhow = { workspace = true }
+
+[package.metadata.wgsl-analyzer]
+custom_imports = [ "shaders\\**\\*.wgsl" ]
