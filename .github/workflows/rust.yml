@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-A unused-crate-dependencies"
 
 jobs:
   build:

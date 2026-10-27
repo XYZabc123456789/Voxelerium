@@ -38,6 +38,7 @@ mod input;
 use input::*;
 
 mod ui;
+#[allow(unused)]
 use ui::*;
 
 const COPYRIGHT: &str = "Voxelerium  Copyright (C) 2026  XYZabc123456789
