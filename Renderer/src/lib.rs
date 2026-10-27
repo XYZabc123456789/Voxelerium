@@ -31,7 +31,7 @@ use utils::*;
 #[allow(unused)]
 #[derive(Debug)]
 pub struct Gpu {
-    window: Arc<Window>,
+    pub window: Arc<Window>,
     handle: Handle,
     surface: Surface<'static>,
     adapter: Adapter,
@@ -163,8 +163,7 @@ impl Gpu {
         let tex = match output {
             CurrentSurfaceTexture::Success(t) => t,
             CurrentSurfaceTexture::Suboptimal(t) => {
-                self.resize(self.window.inner_size())
-                    .expect("Failed resize");
+                self.resize(self.window.inner_size())?;
                 t
             }
             CurrentSurfaceTexture::Lost => {
@@ -181,7 +180,6 @@ impl Gpu {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[
-                    // This is what @location(0) in the fragment shader targets
                     Some(wgpu::RenderPassColorAttachment {
                         view: &tex.texture.create_view(&TextureViewDescriptor::default()),
                         resolve_target: None,

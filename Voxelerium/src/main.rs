@@ -16,105 +16,29 @@
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
 //main.rs
-#![allow(unused)]
-use ::utils::Gresult;
 use core_affinity2::*;
 use rayon::*;
 use renderer::*;
 use std::sync::Arc;
-use std::thread::{self, JoinHandle};
+use std::thread;
 use tokio::runtime::{Builder, Handle};
 use tokio::sync::oneshot;
-use tracing::{debug, error, info, instrument, trace, warn};
+use tracing::{debug, info, instrument, trace, warn};
 use tracing_subscriber::EnvFilter;
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::*;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
+use winit::keyboard::Key;
 
-#[derive(Debug)]
-struct App {
-    window: Option<Arc<Window>>,
-    focus: bool,
-    gpu: Option<Gpu>,
-    handle: Handle,
-}
+mod app;
+use app::*;
 
-impl App {
-    fn new(handle: Handle) -> Self {
-        Self {
-            window: None,
-            focus: false,
-            gpu: None,
-            handle,
-        }
-    }
-}
+mod input;
+use input::*;
 
-impl ApplicationHandler for App {
-    #[instrument(
-        skip_all,
-        name = "window_creation"
-        fields(
-            window_title = "Voxelerium",
-            gpu_initialized = tracing::field::Empty
-        )
-    )]
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        debug!("Creating Window...");
-        self.window = Some(Arc::new(
-            event_loop
-                .create_window(Window::default_attributes().with_title("Voxelerium"))
-                .expect("Could not create window"),
-        ));
-        trace!("Window creared");
-        debug!("Setting up GPU...");
-        self.gpu = Some(
-            self.handle
-                .block_on(Gpu::init(
-                    self.window.as_ref().unwrap().clone(),
-                    self.handle.clone(),
-                ))
-                .expect("GPU initialization failed"),
-        );
-        tracing::Span::current().record("gpu_initialized", true);
-        trace!("GPU Setup Complete")
-    }
-
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        match event {
-            WindowEvent::CloseRequested => {
-                info!("Closing...");
-                event_loop.exit();
-            }
-            WindowEvent::RedrawRequested => {
-                let _span = tracing::trace_span!("render_frame", focused = self.focus).entered();
-                let r = self
-                    .gpu
-                    .as_mut()
-                    .expect("GPU not initialised")
-                    .render(self.focus);
-                match r {
-                    Ok(_) => {}
-                    Err(e) => panic!("{:#?}", e),
-                }
-                self.window
-                    .as_mut()
-                    .expect("Window not Initialised")
-                    .request_redraw();
-            }
-            WindowEvent::Resized(s) => {
-                self.gpu.as_mut().expect("GPU not initialised").resize(s);
-            }
-            WindowEvent::Focused(f) => {
-                self.focus = f;
-            }
-            _ => (),
-        }
-    }
-
-    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {}
-}
+mod ui;
+use ui::*;
 
 const COPYRIGHT: &str = "Voxelerium  Copyright (C) 2026  XYZabc123456789
 This program comes with ABSOLUTELY NO WARRANTY; for details see the about box.
@@ -139,7 +63,7 @@ fn main() {
     }
     debug!("cores: {}", core_ids.len());
     let num_threads = core_ids.len() - 2;
-    core_ids[0].set_affinity();
+    core_ids[0].set_affinity().expect("Could not set CPU affinity");
     trace!("Main thread affinity: CPU0");
     trace!("Creating Threadpool");
     ThreadPoolBuilder::new()
@@ -147,7 +71,7 @@ fn main() {
         .start_handler(move |thread_id| {
             let core_ids = get_core_ids().unwrap();
             let core_id = core_ids[(thread_id + 2) % core_ids.len()];
-            core_id.set_affinity();
+            core_id.set_affinity().expect("Could not set CPU affinity");
             debug!(
                 thread_id,
                 cpu_id = core_id.0,
@@ -157,7 +81,7 @@ fn main() {
         .build_global()
         .expect("Could not create threads");
     debug!("Threadpool created");
-    rayon::scope(|s| {
+    rayon::scope(|_| {
         info!("Now utilising {} worker threads", num_threads);
     });
     trace!("creating shutdown & ready channels");
