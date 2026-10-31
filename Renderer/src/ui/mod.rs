@@ -83,5 +83,5 @@ impl EguiRenderer {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UiMessage {
-    SpawnVoxel
+    SpawnVoxel,
 }

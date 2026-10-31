@@ -20,20 +20,20 @@ use anyhow::{anyhow, bail};
 use egui::*;
 use egui_wgpu::Renderer;
 use egui_winit::State;
-use winit::event::WindowEvent;
-use std::sync::Arc;
 use std::rc::Rc;
+use std::sync::Arc;
 use tokio::runtime::Handle;
 use tracing::{debug, error, info, instrument, trace};
 use utils::*;
 use wgpu::wgt::{CommandEncoderDescriptor, DeviceDescriptor, TextureViewDescriptor};
 use wgpu::*;
 use winit::dpi::PhysicalSize;
+use winit::event::WindowEvent;
 use winit::window::Window;
 
 mod ui;
-use ui::*;
 pub use ui::UiMessage;
+use ui::*;
 
 #[derive(Debug)]
 pub struct Gpu {
@@ -151,7 +151,7 @@ impl Gpu {
             queue,
             config,
             pipeline,
-            ui
+            ui,
         })
     }
 
@@ -218,12 +218,9 @@ impl Gpu {
 
         let mut messages = Rc::from([]);
 
-        let mut output = self
-            .ui
-            .context
-            .run_ui(raw_input, |ctx| {
-                messages = EguiRenderer::draw(ctx, fps);
-            });
+        let mut output = self.ui.context.run_ui(raw_input, |ctx| {
+            messages = EguiRenderer::draw(ctx, fps);
+        });
 
         self.ui
             .state
@@ -289,9 +286,7 @@ impl Gpu {
         self.queue.present(tex);
 
         for id in textures_to_free {
-            self.ui
-                .renderer
-                .free_texture(&id);
+            self.ui.renderer.free_texture(&id);
         }
         Ok(messages)
     }
