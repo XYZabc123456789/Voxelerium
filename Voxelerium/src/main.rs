@@ -20,7 +20,10 @@ use core_affinity2::*;
 use rayon::*;
 use renderer::*;
 use std::sync::Arc;
+use std::rc::Rc;
 use std::thread;
+use std::time::Instant;
+use ::utils::Gresult;
 use tokio::runtime::{Builder, Handle};
 use tokio::sync::oneshot;
 use tracing::{debug, info, instrument, trace, warn};
@@ -37,10 +40,6 @@ use app::*;
 mod input;
 use input::*;
 
-mod ui;
-#[allow(unused)]
-use ui::*;
-
 const COPYRIGHT: &str = "Voxelerium  Copyright (C) 2026  XYZabc123456789
 This program comes with ABSOLUTELY NO WARRANTY; for details see the about box.
 This is free software, and you are welcome to redistribute it
@@ -51,7 +50,7 @@ fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
             EnvFilter::new(if cfg!(debug_assertions) {
-                "trace,wgpu=info,naga=info"
+                "trace,wgpu=info,naga=info,egui_winit=info,egui_wgpu=info,egui=info"
             } else {
                 "info"
             })

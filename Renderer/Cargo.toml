@@ -13,6 +13,9 @@ rayon = { workspace = true }
 tokio = { workspace = true }
 tracing = {workspace = true}
 anyhow = { workspace = true }
+egui = { workspace = true, features = ["default_fonts", "serde"] }
+egui-winit = { workspace = true }
+egui-wgpu = { workspace = true }
 
 [package.metadata.wgsl-analyzer]
 custom_imports = [ "shaders\\**\\*.wgsl" ]

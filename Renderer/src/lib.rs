@@ -17,21 +17,28 @@
 
 // Renderer lib.rs
 use anyhow::{anyhow, bail};
+use egui::*;
+use egui_wgpu::Renderer;
+use egui_winit::State;
+use winit::event::WindowEvent;
 use std::sync::Arc;
+use std::rc::Rc;
 use tokio::runtime::Handle;
 use tracing::{debug, error, info, instrument, trace};
-use utils::Gresult;
+use utils::*;
 use wgpu::wgt::{CommandEncoderDescriptor, DeviceDescriptor, TextureViewDescriptor};
 use wgpu::*;
 use winit::dpi::PhysicalSize;
 use winit::window::Window;
 
-#[allow(unused)]
-use utils::*;
-#[allow(unused)]
+mod ui;
+use ui::*;
+pub use ui::UiMessage;
+
 #[derive(Debug)]
 pub struct Gpu {
     pub window: Arc<Window>,
+    #[allow(unused)]
     handle: Handle,
     surface: Surface<'static>,
     adapter: Adapter,
@@ -39,6 +46,7 @@ pub struct Gpu {
     queue: Queue,
     config: SurfaceConfiguration,
     pipeline: RenderPipeline,
+    ui: EguiRenderer,
 }
 
 impl Gpu {
@@ -130,6 +138,10 @@ impl Gpu {
             cache: None,
         });
         debug!("GPU initialisation complete");
+        trace!("Setting up ui");
+        let ui = EguiRenderer::new(&window, &device, config.format);
+        debug!("Ui settup complete");
+
         Ok(Self {
             window,
             handle,
@@ -139,6 +151,7 @@ impl Gpu {
             queue,
             config,
             pipeline,
+            ui
         })
     }
 
@@ -154,10 +167,7 @@ impl Gpu {
         Ok(())
     }
 
-    pub fn render(&mut self, focus: bool) -> Gresult<()> {
-        if !focus {
-            return Ok(());
-        }
+    pub fn render(&mut self, _focus: bool, fps: f64) -> Gresult<Rc<[UiMessage]>> {
         let output = self.surface.get_current_texture();
 
         let tex = match output {
@@ -169,18 +179,20 @@ impl Gpu {
             CurrentSurfaceTexture::Lost => {
                 bail!("Lost device");
             }
-            _ => return Ok(()),
+            _ => return Ok(Rc::from([])),
         };
 
         let mut encoder = self
             .device
             .create_command_encoder(&CommandEncoderDescriptor::default());
 
+        let surface_view = tex.texture.create_view(&TextureViewDescriptor::default());
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &tex.texture.create_view(&TextureViewDescriptor::default()),
+                    view: &surface_view,
                     resolve_target: None,
                     depth_slice: None,
                     ops: wgpu::Operations {
@@ -202,8 +214,110 @@ impl Gpu {
             render_pass.draw(0..3, 0..1);
         }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        let raw_input = self.ui.state.take_egui_input(&self.window);
+
+        let mut messages = Rc::from([]);
+
+        let mut output = self
+            .ui
+            .context
+            .run_ui(raw_input, |ctx| {
+                messages = EguiRenderer::draw(ctx, fps);
+            });
+
+        self.ui
+            .state
+            .handle_platform_output(&self.window, output.platform_output);
+
+        for (id, image_deltas) in output.textures_delta.set.drain() {
+            for image_delta in image_deltas {
+                self.ui
+                    .renderer
+                    .update_texture(&self.device, &self.queue, id, &image_delta);
+            }
+        }
+
+        let paint_jobs = self
+            .ui
+            .context
+            .tessellate(output.shapes, output.pixels_per_point);
+
+        let width = self.config.width;
+        let height = self.config.height;
+        let screen_descriptor = egui_wgpu::ScreenDescriptor {
+            size_in_pixels: [width, height],
+            pixels_per_point: output.pixels_per_point,
+        };
+
+        let textures_to_free = output.textures_delta.free.drain().collect::<Vec<_>>();
+
+        let user_cmd_buffers = self.ui.renderer.update_buffers(
+            &self.device,
+            &self.queue,
+            &mut encoder,
+            &paint_jobs,
+            &screen_descriptor,
+        );
+        {
+            #[allow(unused_mut)]
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("egui Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &surface_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+
+            self.ui
+                .renderer
+                .render(&mut pass.forget_lifetime(), &paint_jobs, &screen_descriptor);
+        }
+        self.queue.submit(
+            user_cmd_buffers
+                .into_iter()
+                .chain(std::iter::once(encoder.finish())),
+        );
         self.queue.present(tex);
-        Ok(())
+
+        for id in textures_to_free {
+            self.ui
+                .renderer
+                .free_texture(&id);
+        }
+        Ok(messages)
     }
+
+    #[inline]
+    pub fn get_ctx(&self) -> GpuCtx<'_> {
+        GpuCtx {
+            window: self.window.clone(),
+            adapter: &self.adapter,
+            device: &self.device,
+            queue: &self.queue,
+            config: &self.config,
+        }
+    }
+
+    #[inline]
+    pub fn pass_to_ui(&mut self, event: &WindowEvent) -> egui_winit::EventResponse {
+        self.ui.state.on_window_event(&self.window, event)
+    }
+}
+
+#[derive(Debug)]
+pub struct GpuCtx<'a> {
+    pub window: Arc<Window>,
+    pub adapter: &'a Adapter,
+    pub device: &'a Device,
+    pub queue: &'a Queue,
+    pub config: &'a SurfaceConfiguration,
 }

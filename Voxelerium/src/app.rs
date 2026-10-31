@@ -17,11 +17,19 @@
 
 //voxelerium/app.rs
 use super::*;
+
+const ALPHA: f64 = 0.25;
+
 #[derive(Debug)]
 pub struct App {
+    window: Option<Arc<Window>>,
     focus: bool,
     gpu: Option<Gpu>,
     handle: Handle,
+    last_frame: Instant,
+    fps: f64,
+    time_accum: f64,
+    disp_fps: f64,
     keyboard_input: KeyboardInput<16>,
     mouse_input: MouseInput<16>,
 }
@@ -29,12 +37,38 @@ pub struct App {
 impl App {
     pub fn new(handle: Handle) -> Self {
         Self {
+            window: None,
             focus: false,
             gpu: None,
             handle,
+            last_frame: Instant::now(),
+            fps: 60.0,
+            time_accum: 0.0,
+            disp_fps: 0.0,
             keyboard_input: KeyboardInput::new(),
             mouse_input: MouseInput::new(),
         }
+    }
+    #[inline]
+    pub fn window(&self) -> &Arc<Window> {
+        self.window.as_ref().expect("Window not initialised")
+    }
+    #[inline]
+    pub fn gpu(&mut self) -> &mut Gpu {
+        self.gpu.as_mut().expect("GPU not initialised")
+    }
+    #[inline]
+    #[allow(unused)]
+    pub fn gpu_ctx(&self) -> GpuCtx<'_> {
+        self.gpu.as_ref().expect("GPU not initialised").get_ctx()
+    }
+    fn ui_handler(&self, uimsg: Rc<[UiMessage]>) -> Gresult<()> {
+        for msg in uimsg.iter() {
+            match msg {
+                UiMessage::SpawnVoxel => info!("Voxel spawn called"),
+            }
+        }
+        Ok(())
     }
 }
 
@@ -49,7 +83,7 @@ impl ApplicationHandler for App {
     )]
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         debug!("Creating Window...");
-        let window = Some(Arc::new(
+        self.window = Some(Arc::new(
             event_loop
                 .create_window(Window::default_attributes().with_title("Voxelerium"))
                 .expect("Could not create window"),
@@ -58,46 +92,63 @@ impl ApplicationHandler for App {
         debug!("Setting up GPU...");
         self.gpu = Some(
             self.handle
-                .block_on(Gpu::init(
-                    window.as_ref().unwrap().clone(),
-                    self.handle.clone(),
-                ))
+                .block_on(Gpu::init(self.window().clone(), self.handle.clone()))
                 .expect("GPU initialization failed"),
         );
         tracing::Span::current().record("gpu_initialized", true);
-        trace!("GPU Setup Complete")
+        trace!("GPU Setup Complete");
+        trace!("Initialising delta time");
+        self.last_frame = Instant::now();
+        self.disp_fps = 60.0;
+        info!("WINDOW INIT COMPLETE")
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        let response = self.gpu().pass_to_ui(&event);
         match event {
             WindowEvent::CloseRequested => {
                 info!("Closing...");
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
+                let now = Instant::now();
+                let dt = now.duration_since(self.last_frame).as_secs_f64();
+                self.last_frame = now;
+                let raw_fps = 1.0 / dt;
+                self.time_accum += dt;
+                self.fps = (raw_fps * ALPHA) + (self.fps * (1.0 - ALPHA));
+                if self.time_accum >= 1.0 {
+                    self.disp_fps = self.fps;
+                    self.time_accum = 0.0;
+                }
                 let _span = tracing::trace_span!("render_frame", focused = self.focus).entered();
                 let r = self
                     .gpu
                     .as_mut()
                     .expect("GPU not initialised")
-                    .render(self.focus);
+                    .render(self.focus, self.disp_fps);
                 match r {
-                    Ok(_) => {}
+                    Ok(m) => {
+                        let r = self.ui_handler(m);
+                        match r {
+                            Ok(_) => {}
+                            Err(e) => panic!("{:#?}", e),
+                        }
+                    }
                     Err(e) => panic!("{:#?}", e),
                 }
-                self.gpu.as_ref().unwrap().window.request_redraw();
+                self.window().request_redraw();
             }
             WindowEvent::Resized(s) => {
-                self.gpu
-                    .as_mut()
-                    .expect("GPU not initialised")
-                    .resize(s)
-                    .expect("Window resize failed");
+                self.gpu().resize(s).expect("Window resize failed");
             }
             WindowEvent::Focused(f) => {
                 self.focus = f;
             }
             _ => (),
+        }
+        if response.consumed {
+            return;
         }
         self.keyboard_input.process_event(&event);
         self.mouse_input.handle_window_event(&event);
