@@ -100,3 +100,10 @@ impl<T, const N: usize> Default for InputBuffer<T, N> {
         Self::new()
     }
 }
+
+impl<T, const N: usize> Iterator for &mut InputBuffer<T, N> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pop()
+    }
+}

@@ -7,7 +7,7 @@ authors = ["XYZabc123456789 <264301988+XYZabc123456789@users.noreply.github.com>
 license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
-glam = "0.34.1"
+glam = "0.34.2"
 renderer = { version = "0.1.0", path = "Renderer" }
 slotmap = "1.1.1"
 utils = { version = "0.1.0", path = "Utils" }
@@ -28,6 +28,8 @@ anyhow = "1.0.104"
 egui = "0.37.0"
 egui-wgpu = "0.37.0"
 egui-winit = "0.37.0"
+bytemuck = "1.25.2"
+image = "0.25.10"
 
 [profile.release]
 codegen-units = 1

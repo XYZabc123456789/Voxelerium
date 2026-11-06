@@ -16,6 +16,24 @@
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
 // utils lib.rs
+use winit::event::*;
+use winit::keyboard::*;
+
 #[allow(unused)]
 pub use macros::*;
 pub type Gresult<T> = anyhow::Result<T>;
+
+#[macro_export]
+macro_rules! impl_from_into {
+    ($src:ident -> $dst:ident { $($field:ident),* $(,)? }) => {
+        impl From<$src> for $dst {
+            fn from(value: $src) -> Self {
+                Self {
+                    $( $field: value.$field.into(), )*
+                }
+            }
+        }
+    };
+}
+
+pub mod input;

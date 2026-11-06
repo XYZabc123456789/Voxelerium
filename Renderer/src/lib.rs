@@ -16,15 +16,20 @@
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
 // Renderer lib.rs
-use anyhow::{anyhow, bail};
+use ::utils::*;
+use anyhow::bail;
+use bytemuck::*;
 use egui::*;
 use egui_wgpu::Renderer;
 use egui_winit::State;
+use glam::*;
+use image::*;
 use std::rc::Rc;
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tracing::{debug, error, info, instrument, trace};
-use utils::*;
+use utils::input::KeyboardInput;
+use wgpu::util::DeviceExt;
 use wgpu::wgt::{CommandEncoderDescriptor, DeviceDescriptor, TextureViewDescriptor};
 use wgpu::*;
 use winit::dpi::PhysicalSize;
@@ -34,6 +39,14 @@ use winit::window::Window;
 mod ui;
 pub use ui::UiMessage;
 use ui::*;
+
+mod types;
+use types::*;
+
+mod texture;
+use texture::*;
+
+const SPEED: f32 = 0.15;
 
 #[derive(Debug)]
 pub struct Gpu {
@@ -45,17 +58,32 @@ pub struct Gpu {
     device: Device,
     queue: Queue,
     config: SurfaceConfiguration,
-    pipeline: RenderPipeline,
     ui: EguiRenderer,
+    pipeline: RenderPipeline,
+
+    vertex_buffer: Buffer,
+    index_buffer: Buffer,
+    num_indices: u32,
+    diffuse_bind_group: BindGroup,
+    #[allow(unused)]
+    diffuse_texture: GameTexture,
+    camera: Camera,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+    depth_texture: GameTexture,
 }
 
 impl Gpu {
     #[instrument(skip_all, name = "GPU init")]
     pub async fn init(window: Arc<Window>, handle: Handle) -> Gresult<Self> {
         trace!("Creating instance");
-        let mut instdesc = InstanceDescriptor::new_without_display_handle();
-        instdesc.backends = Backends::DX12 | Backends::VULKAN;
-        let instance = Instance::new(instdesc);
+        let instance = Instance::new(InstanceDescriptor {
+            backends: Backends::PRIMARY,
+            flags: Default::default(),
+            memory_budget_thresholds: Default::default(),
+            backend_options: Default::default(),
+            display: None,
+        });
         trace!("instance created");
         trace!("Creating surface");
         let surface = instance.create_surface(window.clone())?;
@@ -93,37 +121,182 @@ impl Gpu {
             Backend = ?info.backend,
         );
         trace!("creating device & queue");
-        let (device, queue) = adapter.request_device(&DeviceDescriptor::default()).await?;
+        let (device, queue) = adapter
+            .request_device(&DeviceDescriptor {
+                label: None,
+                required_features: Features::empty(),
+                experimental_features: ExperimentalFeatures::disabled(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: Default::default(),
+                trace: Trace::Off,
+            })
+            .await?;
         debug!("device & queue created");
         let width = window.inner_size().width;
         let height = window.inner_size().height;
         trace!("configuring surface");
-        let config = surface.get_default_config(&adapter, width, height);
-        let mut config = match config {
-            Some(s) => s,
-            None => {
-                return Err(anyhow!(
-                    "Failed graphics initialisation. No Compatible Surface was found"
-                ));
-            }
+        let surface_caps = surface.get_capabilities(&adapter);
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .find(|f| f.is_srgb())
+            .copied()
+            .unwrap_or(surface_caps.formats[0]);
+        let config = wgpu::SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width,
+            height,
+            present_mode: PresentMode::AutoVsync,
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: Vec::new(),
+            desired_maximum_frame_latency: 2,
+            color_space: SurfaceColorSpace::Auto,
         };
+
         trace!("found compatible surface");
-        config.present_mode = PresentMode::AutoVsync;
         surface.configure(&device, &config);
         debug!("configured surface");
+
+        let diffuse_bytes = include_bytes!("../../assets/happy-tree.png");
+        let diffuse_texture =
+            GameTexture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("texture_bind_group_layout"),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: TextureViewDimension::D2,
+                            sample_type: TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let diffuse_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            label: Some("diffuse_bind_group"),
+            layout: &texture_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&diffuse_texture.view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+        });
+
         let shader = device.create_shader_module(include_wgsl!("./shaders/triangle.wgsl"));
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: BufferUsages::INDEX,
+        });
+
+        let num_indices = INDICES.len() as u32;
+
+        let camera = Camera::new(
+            Vec3::new(0.0, 1.0, 2.0),
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::Y,
+            45.0,
+            config.width as f32 / config.height as f32,
+            0.1,
+            100.0,
+        );
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[GpuCamera::from(&camera)]),
+            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                entries: &[BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
+        let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+
+        let render_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+            label: Some("Render Pipeline Layout"),
+            bind_group_layouts: &[
+                Some(&texture_bind_group_layout),
+                Some(&camera_bind_group_layout),
+            ],
+            immediate_size: 0,
+        });
+
+        let depth_texture = GameTexture::create_depth_texture(&device, &config, "depth_texture");
+
         let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("RenderPipeline"),
-            layout: None,
+            layout: Some(&render_pipeline_layout),
             vertex: VertexState {
                 module: &shader,
                 entry_point: None,
                 compilation_options: PipelineCompilationOptions::default(),
-                buffers: &[],
+                buffers: &[Some(GpuVertex::desc())],
             },
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
+            primitive: PrimitiveState {
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: FrontFace::Ccw,
+                cull_mode: Some(Face::Back),
+                unclipped_depth: false,
+                polygon_mode: PolygonMode::Fill,
+                conservative: false,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Less),
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
             fragment: Some(FragmentState {
                 module: &shader,
                 entry_point: None,
@@ -142,6 +315,8 @@ impl Gpu {
         let ui = EguiRenderer::new(&window, &device, config.format);
         debug!("Ui settup complete");
 
+        trace!("GPU INITIALISATION COMPLETE");
+
         Ok(Self {
             window,
             handle,
@@ -150,8 +325,18 @@ impl Gpu {
             device,
             queue,
             config,
-            pipeline,
             ui,
+            pipeline,
+
+            vertex_buffer,
+            index_buffer,
+            num_indices,
+            diffuse_bind_group,
+            diffuse_texture,
+            camera,
+            camera_buffer,
+            camera_bind_group,
+            depth_texture,
         })
     }
 
@@ -162,8 +347,9 @@ impl Gpu {
         if self.config.width == 0 || self.config.height == 0 {
             return Ok(());
         };
-
         self.surface.configure(&self.device, &self.config);
+        self.depth_texture =
+            GameTexture::create_depth_texture(&self.device, &self.config, "depth_texture");
         Ok(())
     }
 
@@ -189,29 +375,40 @@ impl Gpu {
         let surface_view = tex.texture.create_view(&TextureViewDescriptor::default());
 
         {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &surface_view,
                     resolve_target: None,
                     depth_slice: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                    ops: Operations {
+                        load: LoadOp::Clear(wgpu::Color {
                             r: 0.0,
                             g: 0.0,
                             b: 0.0,
                             a: 0.0,
                         }),
-                        store: wgpu::StoreOp::Store,
+                        store: StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(1.0),
+                        store: StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
                 multiview_mask: None,
             });
             render_pass.set_pipeline(&self.pipeline);
-            render_pass.draw(0..3, 0..1);
+            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
         }
 
         let raw_input = self.ui.state.take_egui_input(&self.window);
@@ -305,6 +502,65 @@ impl Gpu {
     #[inline]
     pub fn pass_to_ui(&mut self, event: &WindowEvent) -> egui_winit::EventResponse {
         self.ui.state.on_window_event(&self.window, event)
+    }
+
+    pub fn update_movement<const N: usize>(&mut self, ki: &mut KeyboardInput<N>) {
+        let mut w = false;
+        let mut a = false;
+        let mut s = false;
+        let mut d = false;
+        for key in ki.events.into_iter() {
+            match key {
+                winit::keyboard::Key::Named(_) => {}
+                winit::keyboard::Key::Character(c) => match c.as_str() {
+                    "w" => {
+                        w = true;
+                    }
+                    "a" => {
+                        a = true;
+                    }
+                    "s" => {
+                        s = true;
+                    }
+                    "d" => {
+                        d = true;
+                    }
+                    _ => {
+                        trace!("Unknown Key Pressed");
+                    }
+                },
+                winit::keyboard::Key::Unidentified(_) => {}
+                winit::keyboard::Key::Dead(_) => {}
+            }
+        }
+        let forward = self.camera.target - self.camera.eye;
+        let forward_norm = forward.normalize();
+        let forward_mag = forward.length();
+
+        if w && forward_mag > SPEED {
+            self.camera.eye += forward_norm * SPEED;
+        }
+        if s {
+            self.camera.eye -= forward_norm * SPEED;
+        }
+        let right = forward_norm.cross(self.camera.up);
+        let forward = self.camera.target - self.camera.eye;
+        let forward_mag = forward.length();
+        if d {
+            self.camera.eye =
+                self.camera.target - (forward + right * SPEED).normalize() * forward_mag;
+        }
+        if a {
+            self.camera.eye =
+                self.camera.target - (forward - right * SPEED).normalize() * forward_mag;
+        }
+
+        self.camera.update_view();
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[GpuCamera::from(&self.camera)]),
+        );
     }
 }
 

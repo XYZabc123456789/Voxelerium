@@ -6,6 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+glam = { workspace = true }
 utils = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
@@ -16,6 +17,8 @@ anyhow = { workspace = true }
 egui = { workspace = true, features = ["default_fonts", "serde"] }
 egui-winit = { workspace = true }
 egui-wgpu = { workspace = true }
+bytemuck = { workspace = true, features = ["bytemuck_derive"] }
+image = { workspace = true, features = ["serde"] }
 
 [package.metadata.wgsl-analyzer]
 custom_imports = [ "shaders\\**\\*.wgsl" ]

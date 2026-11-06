@@ -46,3 +46,11 @@ impl<const N: usize> KeyboardInput<N> {
         self.events.push(raw_event);
     }
 }
+
+impl<const N: usize> Default for KeyboardInput<N> {
+    fn default() -> Self {
+        Self {
+            events: InputBuffer::default(),
+        }
+    }
+}

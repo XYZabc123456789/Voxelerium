@@ -16,8 +16,9 @@
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
 //main.rs
-use ::utils::Gresult;
+use ::utils::*;
 use core_affinity2::*;
+use input::*;
 use rayon::*;
 use renderer::*;
 use std::rc::Rc;
@@ -31,14 +32,10 @@ use tracing_subscriber::EnvFilter;
 use winit::application::ApplicationHandler;
 use winit::event::*;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::keyboard::Key;
 use winit::window::{Window, WindowId};
 
 mod app;
 use app::*;
-
-mod input;
-use input::*;
 
 const COPYRIGHT: &str = "Voxelerium  Copyright (C) 2026  XYZabc123456789
 This program comes with ABSOLUTELY NO WARRANTY; for details see the about box.

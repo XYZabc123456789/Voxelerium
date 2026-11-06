@@ -18,7 +18,7 @@
 //voxelerium/app.rs
 use super::*;
 
-const ALPHA: f64 = 0.25;
+const ALPHA: f64 = 0.05;
 
 #[derive(Debug)]
 pub struct App {
@@ -28,10 +28,10 @@ pub struct App {
     handle: Handle,
     last_frame: Instant,
     fps: f64,
-    time_accum: f64,
-    disp_fps: f64,
     keyboard_input: KeyboardInput<16>,
     mouse_input: MouseInput<16>,
+    time_accum: f64,
+    disp_fps: f64,
 }
 
 impl App {
@@ -43,10 +43,10 @@ impl App {
             handle,
             last_frame: Instant::now(),
             fps: 60.0,
-            time_accum: 0.0,
-            disp_fps: 0.0,
             keyboard_input: KeyboardInput::new(),
             mouse_input: MouseInput::new(),
+            time_accum: 0.0,
+            disp_fps: 60.0,
         }
     }
     #[inline]
@@ -99,7 +99,6 @@ impl ApplicationHandler for App {
         trace!("GPU Setup Complete");
         trace!("Initialising delta time");
         self.last_frame = Instant::now();
-        self.disp_fps = 60.0;
         info!("WINDOW INIT COMPLETE")
     }
 
@@ -121,6 +120,12 @@ impl ApplicationHandler for App {
                     self.disp_fps = self.fps;
                     self.time_accum = 0.0;
                 }
+
+                if !self.keyboard_input.events.is_empty() {
+                    let gpu = self.gpu.as_mut().expect("GPU not initialised");
+                    gpu.update_movement(&mut self.keyboard_input);
+                }
+
                 let _span = tracing::trace_span!("render_frame", focused = self.focus).entered();
                 let r = self
                     .gpu

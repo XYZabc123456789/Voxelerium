@@ -15,18 +15,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-@vertex fn vs(
-    @builtin(vertex_index) vertexIndex: u32
-) -> @builtin(position) vec4f {
-    let pos = array(
-        vec2f(0.0, 0.5),  // top center
-        vec2f(-0.5, -0.5),  // bottom left
-        vec2f(0.5, -0.5)// bottom right
-    );
-
-    return vec4f(pos[vertexIndex], 0.0, 1.0);
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
 }
- 
-@fragment fn fs() -> @location(0) vec4f {
-    return vec4f(1.0, 0.0, 0.0, 1.0);
+@group(1) @binding(0)
+var<uniform> camera: CameraUniform;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) tex_coords: vec2<f32>,
+}
+
+struct VertexOutput {
+    @builtin(position) clip_position: vec4<f32>,
+    @location(0) tex_coords: vec2<f32>,
+}
+
+@vertex
+fn vs_main(model: VertexInput) -> VertexOutput {
+    var out: VertexOutput;
+    out.tex_coords = model.tex_coords;
+    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
+    return out;
+}
+
+@group(0) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(0) @binding(1)
+var s_diffuse: sampler;
+
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let out_coords = vec2f(in.tex_coords.x, 1.0 - in.tex_coords.y);
+    return textureSample(t_diffuse, s_diffuse, out_coords);
 }

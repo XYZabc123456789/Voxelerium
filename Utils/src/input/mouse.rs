@@ -121,3 +121,12 @@ impl<const N: usize> MouseInput<N> {
         self.motion.clear();
     }
 }
+
+impl<const N: usize> Default for MouseInput<N> {
+    fn default() -> Self {
+        Self {
+            events: InputBuffer::new(),
+            motion: MouseMotion::default(),
+        }
+    }
+}
