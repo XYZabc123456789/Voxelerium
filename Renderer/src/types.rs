@@ -35,29 +35,118 @@ impl_from_into! {Vertex -> GpuVertex {position, tex_coords}}
 impl_from_into! {GpuVertex -> Vertex {position, tex_coords}}
 
 pub const VERTICES: &[GpuVertex] = &[
+    // --- Front face (+Z) ---
     GpuVertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.99240386],
-    },
+        position: [-0.5, -0.5, 0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 0
     GpuVertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.56958647],
-    },
+        position: [0.5, -0.5, 0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 1
     GpuVertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.05060294],
-    },
+        position: [0.5, 0.5, 0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 2
     GpuVertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.1526709],
-    },
+        position: [-0.5, 0.5, 0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 3
+    // --- Back face (-Z) ---
     GpuVertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.7347359],
-    },
+        position: [0.5, -0.5, -0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 4
+    GpuVertex {
+        position: [-0.5, -0.5, -0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 5
+    GpuVertex {
+        position: [-0.5, 0.5, -0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 6
+    GpuVertex {
+        position: [0.5, 0.5, -0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 7
+    // --- Top face (+Y) ---
+    GpuVertex {
+        position: [-0.5, 0.5, 0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 8
+    GpuVertex {
+        position: [0.5, 0.5, 0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 9
+    GpuVertex {
+        position: [0.5, 0.5, -0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 10
+    GpuVertex {
+        position: [-0.5, 0.5, -0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 11
+    // --- Bottom face (-Y) ---
+    GpuVertex {
+        position: [-0.5, -0.5, -0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 12
+    GpuVertex {
+        position: [0.5, -0.5, -0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 13
+    GpuVertex {
+        position: [0.5, -0.5, 0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 14
+    GpuVertex {
+        position: [-0.5, -0.5, 0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 15
+    // --- Right face (+X) ---
+    GpuVertex {
+        position: [0.5, -0.5, 0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 16
+    GpuVertex {
+        position: [0.5, -0.5, -0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 17
+    GpuVertex {
+        position: [0.5, 0.5, -0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 18
+    GpuVertex {
+        position: [0.5, 0.5, 0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 19
+    // --- Left face (-X) ---
+    GpuVertex {
+        position: [-0.5, -0.5, -0.5],
+        tex_coords: [0.0, 1.0],
+    }, // 20
+    GpuVertex {
+        position: [-0.5, -0.5, 0.5],
+        tex_coords: [1.0, 1.0],
+    }, // 21
+    GpuVertex {
+        position: [-0.5, 0.5, 0.5],
+        tex_coords: [1.0, 0.0],
+    }, // 22
+    GpuVertex {
+        position: [-0.5, 0.5, -0.5],
+        tex_coords: [0.0, 0.0],
+    }, // 23
 ];
 
-pub const INDICES: &[u16] = [[0, 1, 4], [1, 2, 4], [2, 3, 4]].as_flattened();
+pub const INDICES: &[u16] = &[
+    0, 1, 2, 2, 3, 0, // Front
+    4, 5, 6, 6, 7, 4, // Back
+    8, 9, 10, 10, 11, 8, // Top
+    12, 13, 14, 14, 15, 12, // Bottom
+    16, 17, 18, 18, 19, 16, // Right
+    20, 21, 22, 22, 23, 20, // Left
+];
 
 impl GpuVertex {
     pub fn desc() -> VertexBufferLayout<'static> {

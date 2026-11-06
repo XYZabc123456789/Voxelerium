@@ -24,7 +24,6 @@ pub use keyboard::*;
 mod mouse;
 pub use mouse::*;
 
-#[allow(unused)]
 #[derive(Debug)]
 pub struct InputBuffer<T, const N: usize> {
     entries: [Option<T>; N],

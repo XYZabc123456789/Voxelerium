@@ -64,7 +64,7 @@ impl EguiRenderer {
     pub fn draw(ctx: &mut Ui, fps: f64) -> Rc<[UiMessage]> {
         let mut uimsg = Vec::new();
         egui::Window::new("Debug").show(ctx, |ui| {
-            ui.label(format!("FPS: {:.0}", fps));
+            ui.label(format!("FPS: {:.2}", fps));
             if ui.button("Spawn voxel").clicked() {
                 uimsg.push(UiMessage::SpawnVoxel);
             }

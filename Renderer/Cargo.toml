@@ -11,7 +11,7 @@ utils = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
 rayon = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt", "sync", "time", "tracing"] }
 tracing = {workspace = true}
 anyhow = { workspace = true }
 egui = { workspace = true, features = ["default_fonts", "serde"] }
