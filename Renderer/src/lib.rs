@@ -78,7 +78,7 @@ impl Gpu {
     pub async fn init(window: Arc<Window>, handle: Handle) -> Gresult<Self> {
         trace!("Creating instance");
         let instance = Instance::new(InstanceDescriptor {
-            backends: Backends::PRIMARY,
+            backends: Backends::VULKAN | Backends::DX12,
             flags: Default::default(),
             memory_budget_thresholds: Default::default(),
             backend_options: Default::default(),
@@ -158,7 +158,7 @@ impl Gpu {
         surface.configure(&device, &config);
         debug!("configured surface");
 
-        let diffuse_bytes = include_bytes!("../../assets/happy-tree.png");
+        let diffuse_bytes = include_bytes!("../../assets/placeholder.png");
         let diffuse_texture =
             GameTexture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
 
@@ -350,6 +350,13 @@ impl Gpu {
         self.surface.configure(&self.device, &self.config);
         self.depth_texture =
             GameTexture::create_depth_texture(&self.device, &self.config, "depth_texture");
+        self.camera.aspect = self.config.width as f32 / self.config.height as f32;
+        self.camera.update_projection();
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[GpuCamera::from(&self.camera)]),
+        );
         Ok(())
     }
 
