@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-// utils lib.rs
+//utils/lib.rs
 use winit::event::*;
 use winit::keyboard::*;
 

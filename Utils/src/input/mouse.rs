@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-//voxelerium/input/mouse.rs
+//utils/input/mouse.rs
 use super::*;
 
 #[derive(Debug)]

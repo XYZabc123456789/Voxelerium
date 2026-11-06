@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-//Renderer/ui/mod.rs
+//renderer/ui/mod.rs
 use super::*;
 
 pub struct EguiRenderer {

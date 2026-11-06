@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-//Renderer texture.rs
+//renderer/texture.rs
 use super::*;
 
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;

@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-//Renderer types.rs
+//renderer/types.rs
 use super::*;
 
 #[derive(Copy, Clone, Debug)]

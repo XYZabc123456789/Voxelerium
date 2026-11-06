@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Voxelerium.  If not, see <https://www.gnu.org/licenses/>.
 
-// Renderer lib.rs
+//renderer/lib.rs
 use ::utils::*;
 use anyhow::bail;
 use bytemuck::*;
@@ -50,7 +50,7 @@ const SPEED: f32 = 0.15;
 
 #[derive(Debug)]
 pub struct Gpu {
-    pub window: Arc<Window>,
+    window: Arc<Window>,
     #[allow(unused)]
     handle: Handle,
     surface: Surface<'static>,
